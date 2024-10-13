@@ -117,12 +117,14 @@ class Body:
 
     def compute_acceleration(self, other_bodies, G=1.0, softening=0.18):
         acceleration = np.zeros(2)
-        if not self.is_rocket:
-            for other in other_bodies:
-                if other is not self:
-                    r = other.position - self.position
-                    distance = np.linalg.norm(r)
+        for other in other_bodies:
+            if other is not self:
+                r = other.position - self.position
+                distance = np.linalg.norm(r)
+                if not self.is_rocket:
                     acceleration += G * other.mass * r / np.maximum(distance**3, softening**3)
+                else:
+                    acceleration +=  4*G * other.mass * r / np.maximum(distance**3, (softening/3)**3)
         
         if self.is_rocket:
             thrust_acceleration = np.array([-self.thrust * np.sin(np.radians(self.angle)),
@@ -142,7 +144,7 @@ class Body:
             if keys[pygame.K_RIGHT]:
                 self.angle -= 5
             if keys[pygame.K_UP]:
-                self.thrust = 10
+                self.thrust = 15
             else:
                 self.thrust = 0
             if keys[pygame.K_DOWN]:
@@ -240,9 +242,10 @@ def pygame_run(system):
             body.draw(WIN, rocket_pos, scale)
 
         # Draw the coordinate label
-        x, y = pygame.mouse.get_pos()
-        text = font.render(f'X: {rocket_pos[0]:.5f}, Y: {rocket_pos[1]:.5f}', True, (255, 255, 255))
-        WIN.blit(text, (10, 10))
+        position_text = font.render(f'X: {rocket_pos[0]:.5f}, Y: {rocket_pos[1]:.5f}', True, (255, 255, 255))
+        velocity_text = font.render(f'Vx: {system.bodies[3].velocity[0]:.5f}, Vy: {system.bodies[3].velocity[1]:.5f}', True, (255, 255, 255))
+        WIN.blit(position_text, (10, 10))
+        WIN.blit(velocity_text, (10, 30))
 
         pygame.display.flip()
         clock.tick(60)
