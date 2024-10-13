@@ -4,12 +4,46 @@ import numpy as np
 
 preset_colours = [(219, 255, 254), (255, 235, 205), (255, 80, 0)]
 
+# New Star class
+class Star:
+    def __init__(self, x, y, z, brightness):
+        self.x = x
+        self.y = y
+        self.z = z  # depth for scaling
+        self.brightness = brightness
+
+    def draw(self, win, offset_x, offset_y, scale):
+        # Calculate the center of the window
+        center_x, center_y = win.get_width() // 2, win.get_height() // 2
+        
+        # Apply scaling based on the z-coordinate
+        scale_factor = scale / (scale + self.z)
+        
+        # Calculate scaled offsets
+        scaled_offset_x = offset_x * scale_factor
+        scaled_offset_y = offset_y * scale_factor
+
+        # Calculate screen position relative to the center
+        x = center_x + (self.x - center_x) * scale_factor + scaled_offset_x
+        y = center_y + (self.y - center_y) * scale_factor - scaled_offset_y
+
+        # Wrap around the screen
+        x = x % win.get_width()
+        y = y % win.get_height()
+
+        # Scale the star size and brightness
+        size = max(1, int(2 * scale_factor))
+        color = int(self.brightness * scale_factor)
+        color = max(0, min(color, 255))  # Ensure color is within valid range
+
+        pygame.draw.circle(win, (color, color, color), (int(x), int(y)), size)
+
 class Body:
     def __init__(self, mass, position, velocity, is_rocket=False):
         self.mass = mass
         self.position = np.array(position)
         self.velocity = np.array(velocity)
-        self.colour = preset_colours[0] if not is_rocket else (255, 0, 0)
+        self.colour = preset_colours[2] if not is_rocket else (0, 0, 200)
         self.is_rocket = is_rocket
         self.thrust = 0.0001 if is_rocket else 0
         self.angle = 0 if is_rocket else None
@@ -111,7 +145,7 @@ class Body:
             if keys[pygame.K_RIGHT]:
                 self.angle -= 5
             if keys[pygame.K_UP]:
-                self.thrust = 6
+                self.thrust = 10
             else:
                 self.thrust = 0
             if keys[pygame.K_DOWN]:
@@ -160,7 +194,7 @@ def generate():
     body1 = Body(mass=1.0, position=[0.0, 0.0], velocity=[0.687546, 1.06785])
     body2 = Body(mass=1.0, position=[-1.0, 0.0], velocity=[-0.343773, -0.533925])
     body3 = Body(mass=1.0, position=[1.0, 0], velocity=[-0.343773, -0.533925])
-    body4 = Body(mass=0.0001, position=[0.0, 1.2], velocity=[0.0, 0.0], is_rocket=True)
+    body4 = Body(mass=0.0001, position=[0.0, 0.3], velocity=[0.0, 0.0], is_rocket=True)
 
     system = System(bodies=[body1, body2, body3, body4])
     return system
@@ -175,6 +209,16 @@ def pygame_run(system):
     running = True
     scale = 10000
 
+    # Generate stars with z-coordinate
+    stars = [Star(random.randint(0, WIN.get_width()), 
+                  random.randint(0, WIN.get_height()),
+                  random.randint(1, 1000),  # z-coordinate
+                  random.randint(100, 255)) for _ in range(200)]
+    
+    # Initialize star offset
+    star_offset_x = 0
+    star_offset_y = 0
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -186,6 +230,16 @@ def pygame_run(system):
         system.integrate(dt)
 
         WIN.fill((10, 10, 10))
+        
+        # Update star positions based on rocket movement
+        if keys[pygame.K_UP]:
+            star_offset_x += 0.5 * np.sin(np.radians(system.bodies[3].angle))
+            star_offset_y -= 0.5 * np.cos(np.radians(system.bodies[3].angle))
+
+        # Draw stars with scale
+        for star in stars:
+            star.draw(WIN, star_offset_x, star_offset_y, scale)
+
         rocket_pos = system.bodies[3].position
         if keys[pygame.K_PLUS] or keys[pygame.K_EQUALS]:
             scale *= 1.1
@@ -194,16 +248,14 @@ def pygame_run(system):
         for body in system.bodies:
             body.draw(WIN, rocket_pos, scale)
 
-                # Draw the coordinate label
+        # Draw the coordinate label
         x, y = pygame.mouse.get_pos()
         text = font.render(f'X: {rocket_pos[0]:.5f}, Y: {rocket_pos[1]:.5f}', True, (255, 255, 255))
         WIN.blit(text, (10, 10))
-
 
         pygame.display.flip()
         clock.tick(60)
 
     pygame.quit()
-
 # Run the simulation
 pygame_run(generate())
