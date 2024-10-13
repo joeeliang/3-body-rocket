@@ -3,7 +3,6 @@ import random
 import numpy as np
 
 preset_colours = [(219, 255, 254), (255, 235, 205), (255, 80, 0)]
-
 # New Star class
 class Star:
     def __init__(self, x, y, z, brightness):
@@ -11,14 +10,12 @@ class Star:
         self.y = y
         self.z = z  # depth for scaling
         self.brightness = brightness
-
     def draw(self, win, offset_x, offset_y, scale):
         # Calculate the center of the window
         center_x, center_y = win.get_width() // 2, win.get_height() // 2
-        
         # Apply scaling based on the z-coordinate
         scale_factor = scale / (scale + self.z)
-        
+        scale_factor = 1
         # Calculate scaled offsets
         scaled_offset_x = offset_x * scale_factor
         scaled_offset_y = offset_y * scale_factor
@@ -26,11 +23,11 @@ class Star:
         # Calculate screen position relative to the center
         x = center_x + (self.x - center_x) * scale_factor + scaled_offset_x
         y = center_y + (self.y - center_y) * scale_factor - scaled_offset_y
-
-        # Wrap around the screen
-        x = x % win.get_width()
-        y = y % win.get_height()
-
+        
+        # Wrap around the screen (NEW)
+        x %= win.get_width()
+        y %= win.get_height()
+        
         # Scale the star size and brightness
         size = max(1, int(2 * scale_factor))
         color = int(self.brightness * scale_factor)
@@ -195,51 +192,45 @@ def generate():
     body2 = Body(mass=1.0, position=[-1.0, 0.0], velocity=[-0.343773, -0.533925])
     body3 = Body(mass=1.0, position=[1.0, 0], velocity=[-0.343773, -0.533925])
     body4 = Body(mass=0.0001, position=[0.0, 0.3], velocity=[0.0, 0.0], is_rocket=True)
-
     system = System(bodies=[body1, body2, body3, body4])
+    
     return system
 
 def pygame_run(system):
     pygame.init()
     dt = 0.001
-    
     WIN = pygame.display.set_mode((1000, 1000))
     font = pygame.font.Font(None, 24)
     clock = pygame.time.Clock()
     running = True
     scale = 10000
-
     # Generate stars with z-coordinate
     stars = [Star(random.randint(0, WIN.get_width()), 
                   random.randint(0, WIN.get_height()),
-                  random.randint(1, 1000),  # z-coordinate
+                  random.randint(1, 600),  # z-coordinate
                   random.randint(100, 255)) for _ in range(200)]
     
     # Initialize star offset
     star_offset_x = 0
     star_offset_y = 0
-
+    
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
         keys = pygame.key.get_pressed()
         system.bodies[3].update_rocket_controls(keys)
-
         system.integrate(dt)
-
         WIN.fill((10, 10, 10))
-        
+
         # Update star positions based on rocket movement
-        if keys[pygame.K_UP]:
-            star_offset_x += 0.5 * np.sin(np.radians(system.bodies[3].angle))
-            star_offset_y -= 0.5 * np.cos(np.radians(system.bodies[3].angle))
+        
+        star_offset_x -= system.bodies[3].velocity[0]
+        star_offset_y -= system.bodies[3].velocity[1]
 
         # Draw stars with scale
         for star in stars:
             star.draw(WIN, star_offset_x, star_offset_y, scale)
-
         rocket_pos = system.bodies[3].position
         if keys[pygame.K_PLUS] or keys[pygame.K_EQUALS]:
             scale *= 1.1
@@ -257,5 +248,6 @@ def pygame_run(system):
         clock.tick(60)
 
     pygame.quit()
+
 # Run the simulation
 pygame_run(generate())
